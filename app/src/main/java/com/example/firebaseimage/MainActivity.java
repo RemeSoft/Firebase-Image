@@ -4,11 +4,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.app.ProgressDialog;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
+import android.webkit.MimeTypeMap;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -17,14 +18,14 @@ import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.database.GenericTypeIndicator;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.StorageTask;
 import com.google.firebase.storage.UploadTask;
 import com.squareup.picasso.Picasso;
-
-import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -35,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
     private Uri imageUri;
     private int IMAGE_REQUEST = 1;
 
+    StorageTask uploadTask;
+    DatabaseReference databaseReference;
     FirebaseStorage firebaseStorage;
     StorageReference storageReference;
 
@@ -53,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         //Initialize....
+        databaseReference = FirebaseDatabase.getInstance().getReference("Users");
         firebaseStorage = FirebaseStorage.getInstance();
         storageReference = firebaseStorage.getReference();
 
@@ -67,7 +71,11 @@ public class MainActivity extends AppCompatActivity {
         uploader.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                upload();
+                if(uploadTask!=null && uploadTask.isInProgress()){
+                    Toast.makeText(MainActivity.this, "File Uploading Please Wait...", Toast.LENGTH_SHORT).show();
+                }else{
+                    upload();
+                }
             }
         });
 
@@ -91,22 +99,42 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    protected void upload(){
-        if(imageUri!=null){
+    //Gating File Extension...
+    public String getFileExtension(Uri imageUri){
+        ContentResolver contentResolver = getContentResolver();
+        MimeTypeMap mimeTypeMap = MimeTypeMap.getSingleton();
+        return mimeTypeMap.getExtensionFromMimeType(contentResolver.getType(imageUri));
+    }
 
-            // Code for showing progressDialog while uploading
-            //ProgressDialog progressDialog = new ProgressDialog(this);
-            //progressDialog.setTitle("Uploading...");
-            //progressDialog.show();
+    //Upload Method...
+    protected void upload(){
+        String imageName = input.getText().toString().trim();
+
+        if(imageName.isEmpty()){
+            input.setError("Please Enter Image Name....");
+            input.requestFocus();
+            return;
+        }
+
+        if(imageUri!=null){
+            /*
+            Code for showing progressDialog while uploading
+            ProgressDialog progressDialog = new ProgressDialog(this);
+            progressDialog.setTitle("Uploading...");
+            progressDialog.show();
+            Toast.makeText(this, "Uploading Start...", Toast.LENGTH_SHORT).show()
+            */
 
             //Storage Reference...
-            Toast.makeText(this, "Uploading Start...", Toast.LENGTH_SHORT).show();
-            StorageReference reference = storageReference.child("images/" + UUID.randomUUID().toString());
+            StorageReference reference = storageReference.child("images/" + System.currentTimeMillis() + "." + getFileExtension(imageUri));
             reference.putFile(imageUri)
                     .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
                         @Override
                         public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
                             //progressDialog.dismiss();
+                            DB_Model db_model = new DB_Model(imageName,taskSnapshot.getStorage().getDownloadUrl().toString());
+                            String key = databaseReference.push().getKey();
+                            databaseReference.child(key).setValue(db_model);
                             Toast.makeText(MainActivity.this, "File Uploaded Successful!!", Toast.LENGTH_SHORT).show();
                         }
                     })
@@ -125,11 +153,5 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
         }
-
     }
-
-
-
-
-
 }
