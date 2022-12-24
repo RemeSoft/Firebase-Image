@@ -18,6 +18,7 @@ import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.storage.FirebaseStorage;
@@ -68,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        //if Uploader Clicked....
         uploader.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -76,6 +78,15 @@ public class MainActivity extends AppCompatActivity {
                 }else{
                     upload();
                 }
+            }
+        });
+
+        //if Shower Clicked....
+        shower.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this,ImageActivity.class);
+                startActivity(intent);
             }
         });
 
@@ -132,7 +143,12 @@ public class MainActivity extends AppCompatActivity {
                         @Override
                         public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
                             //progressDialog.dismiss();
-                            DB_Model db_model = new DB_Model(imageName,taskSnapshot.getStorage().getDownloadUrl().toString());
+
+                            Task<Uri>urlTask = taskSnapshot.getStorage().getDownloadUrl();
+                            while (!urlTask.isSuccessful());
+                            Uri downloadUrl = urlTask.getResult();
+
+                            DB_Model db_model = new DB_Model(imageName,downloadUrl.toString());
                             String key = databaseReference.push().getKey();
                             databaseReference.child(key).setValue(db_model);
                             Toast.makeText(MainActivity.this, "File Uploaded Successful!!", Toast.LENGTH_SHORT).show();
